@@ -1,0 +1,5 @@
+--- # YoloV5 training parameters
+img_size: [512, 512]
+batch_size: 16
+epochs: 5
+weights: yolov5s.pt

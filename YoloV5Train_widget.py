@@ -38,18 +38,29 @@ class YoloV5TrainWidget(core.CProtocolTaskWidget):
             self.parameters = param
 
         # Create layout : QGridLayout by default
-        self.gridLayout = QGridLayout()
+        self.grid_layout = QGridLayout()
+
+        self.browse_dataset_folder = utils.append_browse_file(self.grid_layout, label="Dataset folder",
+                                                              path=self.parameters.dataset_folder,
+                                                              tooltip="Select folder",
+                                                              mode=QFileDialog.Directory)
+
+        self.browse_out_folder = utils.append_browse_file(self.grid_layout, label="Output folder",
+                                                          path=self.parameters.output_folder,
+                                                          tooltip="Select folder",
+                                                          mode=QFileDialog.Directory)
+
         # PyQt -> Qt wrapping
-        layout_ptr = utils.PyQtToQt(self.gridLayout)
+        layout_ptr = utils.PyQtToQt(self.grid_layout)
 
         # Set widget layout
         self.setLayout(layout_ptr)
 
     def onApply(self):
         # Apply button clicked slot
-
         # Get parameters from widget
-        # Example : self.parameters.windowSize = self.spinWindowSize.value()
+        self.parameters.dataset_folder = self.browse_dataset_folder.path
+        self.parameters.output_folder = self.browse_out_folder.path
 
         # Send signal to launch the process
         self.emitApply(self.parameters)
