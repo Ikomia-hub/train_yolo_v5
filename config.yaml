@@ -1,5 +1,30 @@
 --- # YoloV5 training parameters
-img_size: [512, 512]
-batch_size: 16
-epochs: 5
 weights: yolov5s.pt
+cfg: ''
+data: 'yolov5/data/coco128.yaml'
+hyp: 'yolov5/data/hyp.scratch.yaml'
+epochs: 5
+batch_size: 16
+img_size: [512, 512]
+rect : False
+resume: False
+nosave: False
+notest: False
+noautoanchor: False
+evolve : False
+bucket: ''
+cache_images: False
+image_weights: False
+device: ''
+multi_scale: False
+single_cls: False
+adam: False
+sync_bn: False
+local_rank: -1
+log_imgs: 16
+log_artifacts: False
+workers: 8
+project: 'runs'
+name: 'exp'
+exist_ok: False
+quad: False

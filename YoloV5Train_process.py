@@ -75,21 +75,34 @@ class YoloV5TrainParam(dataprocess.CDnnTrainProcessParam):
     def __init__(self):
         dataprocess.CDnnTrainProcessParam.__init__(self)
         self.dataset_folder = ""
+        self.model_name = "yolov5s"
+        self.epochs = 5
+        self.batch_size = 16
+        self.input_size = [512, 512]
+        self.custom_hyp_file = ""
         self.output_folder = os.path.dirname(os.path.realpath(__file__)) + "/runs/"
 
     def setParamMap(self, paramMap):
         # Set parameters values from Ikomia application
         # Parameters values are stored as string and accessible like a python dict
+        super().setParamMap(paramMap)
         self.dataset_folder = paramMap["dataset_folder"]
         self.output_folder = paramMap["output_folder"]
+        w = paramMap("input_width")
+        h = paramMap("input_height")
+        self.input_size = [w, h]
+        self.custom_hyp_file = paramMap["custom_hyp_file"]
 
     def getParamMap(self):
         # Send parameters values to Ikomia application
         # Create the specific dict structure (string container)
-        paramMap = core.ParamMap()
-        paramMap["dataset_folder"] = self.dataset_folder
-        paramMap["output_folder"] = self.output_folder
-        return paramMap
+        param_map = super().getParamMap()
+        param_map["dataset_folder"] = self.dataset_folder
+        param_map["output_folder"] = self.output_folder
+        param_map["input_width"] = str(self.input_size[0])
+        param_map["input_height"] = str(self.input_size[1])
+        param_map["custom_hyp_file"] = self.custom_hyp_file
+        return param_map
 
 
 # --------------------
@@ -171,7 +184,6 @@ class YoloV5TrainProcess(dnntrain.TrainProcess):
         parser.add_argument('--quad', action='store_true', help='quad dataloader')
 
         config_path = os.path.dirname(os.path.realpath(__file__)) + "/config.yaml"
-        print(config_path)
 
         with open(config_path) as f:
             config = yaml.load(f, Loader=yaml.FullLoader)
@@ -179,7 +191,17 @@ class YoloV5TrainProcess(dnntrain.TrainProcess):
 
         opt = parser.parse_args()
         opt.data = dataset_yaml
-        opt.hyp = os.path.dirname(os.path.realpath(__file__)) + "/" + opt.hyp
+
+        # Override with GUI parameters
+        if param.custom_hyp_file:
+            opt.hyp = param.custom_hyp_file
+        else:
+            opt.hyp = os.path.dirname(os.path.realpath(__file__)) + "/" + opt.hyp
+
+        opt.weights = param.model_name + ".pt"
+        opt.epochs = param.epochs
+        opt.batch_size = param.batch_size
+        opt.img_size = param.input_size
         opt.project = param.output_folder
         return opt
 
