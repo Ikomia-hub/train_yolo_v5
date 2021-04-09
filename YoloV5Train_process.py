@@ -29,6 +29,9 @@ import yaml
 import logging
 import random
 import time
+import webbrowser
+import subprocess
+import atexit
 import numpy as np
 from warnings import warn
 import torch
@@ -80,6 +83,7 @@ class YoloV5TrainParam(dataprocess.CDnnTrainProcessParam):
         self.batch_size = 16
         self.input_size = [512, 512]
         self.custom_hyp_file = ""
+        self.launch_tensorboard = True
         self.output_folder = os.path.dirname(os.path.realpath(__file__)) + "/runs/"
 
     def setParamMap(self, paramMap):
@@ -87,21 +91,23 @@ class YoloV5TrainParam(dataprocess.CDnnTrainProcessParam):
         # Parameters values are stored as string and accessible like a python dict
         super().setParamMap(paramMap)
         self.dataset_folder = paramMap["dataset_folder"]
-        self.output_folder = paramMap["output_folder"]
-        w = paramMap("input_width")
-        h = paramMap("input_height")
+        w = int(paramMap["input_width"])
+        h = int(paramMap["input_height"])
         self.input_size = [w, h]
         self.custom_hyp_file = paramMap["custom_hyp_file"]
+        self.launch_tensorboard = bool(paramMap["launch_tensorboard"])
+        self.output_folder = paramMap["output_folder"]
 
     def getParamMap(self):
         # Send parameters values to Ikomia application
         # Create the specific dict structure (string container)
         param_map = super().getParamMap()
         param_map["dataset_folder"] = self.dataset_folder
-        param_map["output_folder"] = self.output_folder
         param_map["input_width"] = str(self.input_size[0])
         param_map["input_height"] = str(self.input_size[1])
         param_map["custom_hyp_file"] = self.custom_hyp_file
+        param_map["launch_tensorboard"] = str(self.launch_tensorboard)
+        param_map["output_folder"] = self.output_folder
         return param_map
 
 
@@ -122,10 +128,22 @@ class YoloV5TrainProcess(dnntrain.TrainProcess):
         else:
             self.setParam(copy.deepcopy(param))
 
+        self.opt = None
+        self.tensorboard_proc = None
+        # Terminate tensorboard process
+        atexit.register(self.cleanup)
+
+    def cleanup(self):
+        self.tensorboard_proc.kill()
+
     def getProgressSteps(self, eltCount=1):
         # Function returning the number of progress steps for this process
         # This is handled by the main progress bar of Ikomia application
-        return 1
+        param = self.getParam()
+        if param is not None:
+            return param.epochs
+        else:
+            return 1
 
     def run(self):
         # Core function of your process
@@ -138,12 +156,16 @@ class YoloV5TrainProcess(dnntrain.TrainProcess):
         # Conversion from Ikomia dataset to YoloV5
         print("Preparing dataset...")
         dataset_yaml = YoloV5_dataset.prepare(dataset_input, param.dataset_folder, 0.9)
-        self.emitStepProgress()
+
         print("Collecting configuration parameters...")
-        opt = self.load_config(dataset_yaml)
-        self.emitStepProgress()
+        self.opt = self.load_config(dataset_yaml)
+
+        # Start TensorBoard server
+        if param.launch_tensorboard:
+            self.start_tensorboard(self.opt.project)
+
         print("Start training...")
-        self.start_training(opt)
+        self.start_training()
 
         # Call endTaskRun to finalize process
         self.endTaskRun()
@@ -203,65 +225,77 @@ class YoloV5TrainProcess(dnntrain.TrainProcess):
         opt.batch_size = param.batch_size
         opt.img_size = param.input_size
         opt.project = param.output_folder
+        opt.stop_train = False
         return opt
 
-    def start_training(self, opt):
-        # Set DDP variables
-        opt.world_size = int(os.environ['WORLD_SIZE']) if 'WORLD_SIZE' in os.environ else 1
-        opt.global_rank = int(os.environ['RANK']) if 'RANK' in os.environ else -1
-        init_logging(opt.global_rank)
+    def start_training(self):
+        param = self.getParam()
 
-        if opt.global_rank in [-1, 0]:
+        # Set DDP variables
+        self.opt.world_size = int(os.environ['WORLD_SIZE']) if 'WORLD_SIZE' in os.environ else 1
+        self.opt.global_rank = int(os.environ['RANK']) if 'RANK' in os.environ else -1
+        init_logging(self.opt.global_rank)
+
+        if self.opt.global_rank in [-1, 0]:
             check_git_status()
 
         # Resume
-        if opt.resume:  # resume an interrupted run
-            ckpt = opt.resume if isinstance(opt.resume, str) else get_latest_run()  # specified or most recent path
+        if self.opt.resume:  # resume an interrupted run
+            ckpt = self.opt.resume if isinstance(self.opt.resume, str) else get_latest_run()  # specified or most recent path
             assert os.path.isfile(ckpt), 'ERROR: --resume checkpoint does not exist'
-            apriori = opt.global_rank, opt.local_rank
+            apriori = self.opt.global_rank, self.opt.local_rank
 
             with open(Path(ckpt).parent.parent / 'opt.yaml') as f:
-                opt = argparse.Namespace(**yaml.load(f, Loader=yaml.FullLoader))  # replace
+                self.opt = argparse.Namespace(**yaml.load(f, Loader=yaml.FullLoader))  # replace
 
-            opt.cfg, opt.weights, opt.resume, opt.global_rank, opt.local_rank = '', ckpt, True, *apriori  # reinstate
+            # reinstate
+            self.opt.cfg, self.opt.weights, self.opt.resume, self.opt.global_rank, self.opt.local_rank = '', ckpt, True, *apriori
             logger.info('Resuming training from %s' % ckpt)
         else:
             # opt.hyp = opt.hyp or ('hyp.finetune.yaml' if opt.weights else 'hyp.scratch.yaml')
-            opt.data, opt.cfg, opt.hyp = check_file(opt.data), check_file(opt.cfg), check_file(opt.hyp)  # check files
-            assert len(opt.cfg) or len(opt.weights), 'either --cfg or --weights must be specified'
-            opt.img_size.extend([opt.img_size[-1]] * (2 - len(opt.img_size)))  # extend to 2 sizes (train, test)
-            opt.name = 'evolve' if opt.evolve else opt.name
-            opt.save_dir = increment_path(Path(opt.project) / opt.name, exist_ok=opt.exist_ok | opt.evolve)  # increment run
+            # check files
+            self.opt.data = check_file(self.opt.data)
+            self.opt.cfg = check_file(self.opt.cfg)
+            self.opt.hyp = check_file(self.opt.hyp)
+            assert len(self.opt.cfg) or len(self.opt.weights), 'either --cfg or --weights must be specified'
+            # extend to 2 sizes (train, test)
+            self.opt.img_size.extend([self.opt.img_size[-1]] * (2 - len(self.opt.img_size)))
+            self.opt.name = 'evolve' if self.opt.evolve else self.opt.name
+            # increment run
+            self.opt.save_dir = increment_path(Path(self.opt.project) / self.opt.name, exist_ok=self.opt.exist_ok | self.opt.evolve)
 
         # DDP mode
-        opt.total_batch_size = opt.batch_size
-        device = select_device(opt.device, batch_size=opt.batch_size)
+        self.opt.total_batch_size = self.opt.batch_size
+        device = select_device(self.opt.device, batch_size=self.opt.batch_size)
 
-        if opt.local_rank != -1:
-            assert torch.cuda.device_count() > opt.local_rank
-            torch.cuda.set_device(opt.local_rank)
-            device = torch.device('cuda', opt.local_rank)
+        if self.opt.local_rank != -1:
+            assert torch.cuda.device_count() > self.opt.local_rank
+            torch.cuda.set_device(self.opt.local_rank)
+            device = torch.device('cuda', self.opt.local_rank)
             dist.init_process_group(backend='nccl', init_method='env://')  # distributed backend
-            assert opt.batch_size % opt.world_size == 0, '--batch-size must be multiple of CUDA device count'
-            opt.batch_size = opt.total_batch_size // opt.world_size
+            assert self.opt.batch_size % self.opt.world_size == 0, '--batch-size must be multiple of CUDA device count'
+            self.opt.batch_size = self.opt.total_batch_size // self.opt.world_size
 
         # Hyperparameters
-        with open(opt.hyp) as f:
+        with open(self.opt.hyp) as f:
             hyp = yaml.load(f, Loader=yaml.FullLoader)  # load hyps
             if 'box' not in hyp:
                 warn('Compatibility: %s missing "box" which was renamed from "giou" in %s' %
-                     (opt.hyp, 'https://github.com/ultralytics/yolov5/pull/1120'))
+                     (self.opt.hyp, 'https://github.com/ultralytics/yolov5/pull/1120'))
                 hyp['box'] = hyp.pop('giou')
 
         # Train
-        logger.info(opt)
-        if not opt.evolve:
+        logger.info(self.opt)
+        if not self.opt.evolve:
             tb_writer = None  # init loggers
-            if opt.global_rank in [-1, 0]:
-                logger.info(
-                    f'Start Tensorboard with "tensorboard --logdir {opt.project}", view at http://localhost:6006/')
-                tb_writer = SummaryWriter(opt.save_dir)  # Tensorboard
-            yolov5_train.train(hyp, opt, device, tb_writer, wandb)
+            if self.opt.global_rank in [-1, 0]:
+                # Tensorboard
+                if param.launch_tensorboard:
+                    self.open_tensorboard()
+
+                tb_writer = SummaryWriter(self.opt.save_dir)
+
+            yolov5_train.train(hyp, self.opt, device, tb_writer, wandb, self.on_epoch_end)
 
         # Evolve hyperparameters (optional)
         else:
@@ -295,13 +329,13 @@ class YoloV5TrainProcess(dnntrain.TrainProcess):
                     'mosaic': (1, 0.0, 1.0),  # image mixup (probability)
                     'mixup': (1, 0.0, 1.0)}  # image mixup (probability)
 
-            assert opt.local_rank == -1, 'DDP mode not implemented for --evolve'
-            opt.notest, opt.nosave = True, True  # only test/save final epoch
+            assert self.opt.local_rank == -1, 'DDP mode not implemented for --evolve'
+            self.opt.notest, self.opt.nosave = True, True  # only test/save final epoch
             # ei = [isinstance(x, (int, float)) for x in hyp.values()]  # evolvable indices
-            yaml_file = Path(opt.save_dir) / 'hyp_evolved.yaml'  # save best result here
+            yaml_file = Path(self.opt.save_dir) / 'hyp_evolved.yaml'  # save best result here
 
-            if opt.bucket:
-                os.system('gsutil cp gs://%s/evolve.txt .' % opt.bucket)  # download evolve.txt if exists
+            if self.opt.bucket:
+                os.system('gsutil cp gs://%s/evolve.txt .' % self.opt.bucket)  # download evolve.txt if exists
 
             for _ in range(300):  # generations to evolve
                 if Path('evolve.txt').exists():  # if evolve.txt exists: select best hyps and mutate
@@ -339,15 +373,53 @@ class YoloV5TrainProcess(dnntrain.TrainProcess):
                     hyp[k] = round(hyp[k], 5)  # significant digits
 
                 # Train mutation
-                results = yolov5_train.train(hyp.copy(), opt, device, wandb=wandb)
+                results = yolov5_train.train(hyp.copy(), self.opt, device, wandb=wandb)
 
                 # Write mutation results
-                print_mutation(hyp.copy(), results, yaml_file, opt.bucket)
+                print_mutation(hyp.copy(), results, yaml_file, self.opt.bucket)
 
             # Plot results
             plot_evolution(yaml_file)
             print(f'Hyperparameter evolution complete. Best results saved as: {yaml_file}\n'
                   f'Command to train a new model with these hyperparameters: $ python train.py --hyp {yaml_file}')
+
+    def start_tensorboard(self, project_folder):
+        if self.tensorboard_proc is None:
+            cmd = ["tensorboard", "--logdir", project_folder]
+            self.tensorboard_proc = subprocess.Popen(cmd)
+            print("Waiting for TensorBoard to start...")
+            time.sleep(5)
+
+    def open_tensorboard(self):
+        if self.tensorboard_proc is not None:
+            url = "http://localhost:6006/"
+            webbrowser.open(url, new=0)
+
+    def on_epoch_end(self, metrics, step):
+        # Step progress bar:
+        self.emitStepProgress()
+        # Log metrics
+        metrics = self.conform_metrics(metrics)
+        self.log_metrics(metrics, step)
+
+    def stop(self):
+        super().stop()
+        self.opt.stop_train = True
+
+    @staticmethod
+    def conform_metrics(metrics):
+        new_metrics = {}
+        for tag in metrics:
+            if "train/" in tag:
+                val = metrics[tag].item()
+            else:
+                val = metrics[tag]
+
+            tag = tag.replace(":", "-")
+            new_metrics[tag] = val
+
+        return new_metrics
+
 
 # --------------------
 # - Factory class to build process object
