@@ -54,7 +54,6 @@ def _dataset_exists(ikdataset, dataset_folder, split_ratio):
     # Dataset exist
     with open(dataset_yaml, "r") as f:
         data = yaml.load(f, Loader=yaml.FullLoader)
-        print(data)
 
         # Check folder structure
         if not os.path.exists(data["train"]) or not os.path.exists(data["val"]):
@@ -68,8 +67,6 @@ def _dataset_exists(ikdataset, dataset_folder, split_ratio):
         val_label_path = data["val"].replace(os.sep + "images" + os.sep + "val",
                                              os.sep + "labels" + os.sep + "val",
                                              1)
-        print(train_label_path)
-        print(val_label_path)
 
         if not os.path.exists(train_label_path) or not os.path.exists(val_label_path):
             f.close()
@@ -78,10 +75,6 @@ def _dataset_exists(ikdataset, dataset_folder, split_ratio):
 
         # check number of classes
         categories = ikdataset.data["metadata"]["category_names"]
-
-        print(categories)
-        print(data["nc"])
-        print(data["names"])
 
         if len(categories) != data["nc"]:
             f.close()
@@ -101,11 +94,6 @@ def _dataset_exists(ikdataset, dataset_folder, split_ratio):
         train_images_count = len(os.listdir(data["train"]))
         train_labels_count = len(os.listdir(train_label_path))
 
-        print(images)
-        print(train_size)
-        print(train_images_count)
-        print(train_labels_count)
-
         if train_images_count != train_size or train_labels_count != train_size:
             f.close()
             shutil.rmtree(dataset_folder)
@@ -113,10 +101,6 @@ def _dataset_exists(ikdataset, dataset_folder, split_ratio):
 
         val_images_count = len(os.listdir(data["val"]))
         val_labels_count = len(os.listdir(val_label_path))
-
-        print(val_size)
-        print(val_images_count)
-        print(val_labels_count)
 
         if val_images_count != val_size or val_labels_count != val_size:
             f.close()
