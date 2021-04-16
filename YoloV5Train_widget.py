@@ -18,8 +18,7 @@
 
 from ikomia import utils, core, dataprocess
 import YoloV5Train_process as processMod
-
-#PyQt GUI framework
+# PyQt GUI framework
 from PyQt5.QtWidgets import *
 
 

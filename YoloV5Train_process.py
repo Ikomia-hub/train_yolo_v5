@@ -22,8 +22,6 @@ import argparse
 import copy
 import os
 import sys
-# Add yolov5 git submodule to path
-sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/yolov5")
 # Your imports below
 import yaml
 import logging
@@ -39,10 +37,11 @@ import torch.distributed as dist
 from torch.utils.tensorboard import SummaryWriter
 from pathlib import Path
 from yolov5 import train as yolov5_train
-from yolov5.utils.general import check_file, check_git_status, fitness, get_latest_run, increment_path, \
-    print_mutation
+#sys.path.insert(0, os.path.dirname(yolov5_train.__file__))
+
+from yolov5.utils.general import check_file, check_git_status, fitness, get_latest_run, increment_path, print_mutation
 from yolov5.utils.torch_utils import select_device
-from utils.plots import plot_evolution
+from yolov5.utils.plots import plot_evolution
 import YoloV5_dataset
 
 
@@ -177,8 +176,8 @@ class YoloV5TrainProcess(dnntrain.TrainProcess):
         parser = argparse.ArgumentParser()
         parser.add_argument('--weights', type=str, default='yolov5s.pt', help='initial weights path')
         parser.add_argument('--cfg', type=str, default='', help='model.yaml path')
-        parser.add_argument('--data', type=str, default='yolov5/data/coco128.yaml', help='data.yaml path')
-        parser.add_argument('--hyp', type=str, default='yolov5/data/hyp.scratch.yaml', help='hyperparameters path')
+        parser.add_argument('--data', type=str, default='data/coco128.yaml', help='data.yaml path')
+        parser.add_argument('--hyp', type=str, default='data/hyp.scratch.yaml', help='hyperparameters path')
         parser.add_argument('--epochs', type=int, default=300)
         parser.add_argument('--batch-size', type=int, default=16, help='total batch size for all GPUs')
         parser.add_argument('--img-size', nargs='+', type=int, default=[640, 640], help='[train, test] image sizes')
@@ -218,7 +217,7 @@ class YoloV5TrainProcess(dnntrain.TrainProcess):
         if param.custom_hyp_file:
             opt.hyp = param.custom_hyp_file
         else:
-            opt.hyp = os.path.dirname(os.path.realpath(__file__)) + "/" + opt.hyp
+            opt.hyp = os.path.dirname(yolov5_train.__file__) + "/" + opt.hyp
 
         opt.weights = param.model_name + ".pt"
         opt.epochs = param.epochs
@@ -431,24 +430,19 @@ class YoloV5TrainProcessFactory(dataprocess.CProcessFactory):
         dataprocess.CProcessFactory.__init__(self)
         # Set process information as string here
         self.info.name = "YoloV5Train"
-        self.info.shortDescription = "your short description"
-        self.info.description = "your description"
-        self.info.authors = "Plugin authors"
+        self.info.shortDescription = "Train Ultralytics YoloV5 object detection models."
+        self.info.description = "Train Ultralytics YoloV5 object detection models."
+        self.info.authors = "Ultralytics"
         # relative path -> as displayed in Ikomia application process tree
-        self.info.path = "Plugins/Python"
+        self.info.path = "Plugins/Python/Train"
         self.info.version = "1.0.0"
-        # self.info.iconPath = "your path to a specific icon"
-        self.info.authors = "algorithm author"
-        self.info.article = "title of associated research article"
-        self.info.journal = "publication journal"
-        self.info.year = 2021
-        self.info.license = "MIT License"
-        # URL of documentation
-        self.info.documentationLink = ""
+        self.info.iconPath = "icons/icon.png"
+        self.info.year = 2020
+        self.info.license = "GPLv3.0"
         # Code source repository
-        self.info.repository = ""
+        self.info.repository = "https://github.com/ultralytics/yolov5"
         # Keywords used for search
-        self.info.keywords = "your,keywords,here"
+        self.info.keywords = "train,object,detection,pytorch"
 
     def create(self, param=None):
         # Create process object

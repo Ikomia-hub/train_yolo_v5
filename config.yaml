@@ -1,8 +1,8 @@
 --- # YoloV5 training parameters
 weights: yolov5s.pt
 cfg: ''
-data: 'yolov5/data/coco128.yaml'
-hyp: 'yolov5/data/hyp.scratch.yaml'
+data: 'data/coco128.yaml'
+hyp: 'data/hyp.scratch.yaml'
 epochs: 5
 batch_size: 16
 img_size: [512, 512]
