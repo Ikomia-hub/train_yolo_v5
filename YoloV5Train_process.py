@@ -129,10 +129,8 @@ class YoloV5TrainProcess(dnntrain.TrainProcess):
 
         self.opt = None
         self.tensorboard_proc = None
-        # Terminate tensorboard process
-        atexit.register(self.cleanup)
 
-    def cleanup(self):
+    def __del__(self):
         self.tensorboard_proc.kill()
 
     def getProgressSteps(self, eltCount=1):
