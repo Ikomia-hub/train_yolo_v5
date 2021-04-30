@@ -67,39 +67,19 @@ def init_logging(rank=-1):
 # - Class to handle the process parameters
 # - Inherits PyCore.CProtocolTaskParam from Ikomia API
 # --------------------
-class YoloV5TrainParam(dataprocess.CDnnTrainProcessParam):
+class YoloV5TrainParam(dnntrain.TrainParam):
 
     def __init__(self):
-        dataprocess.CDnnTrainProcessParam.__init__(self)
-        self.dataset_folder = ""
-        self.model_name = "yolov5s"
-        self.epochs = 5
-        self.batch_size = 16
-        self.input_size = [512, 512]
-        self.custom_hyp_file = ""
-        self.output_folder = os.path.dirname(os.path.realpath(__file__)) + "/runs/"
-
-    def setParamMap(self, paramMap):
-        # Set parameters values from Ikomia application
-        # Parameters values are stored as string and accessible like a python dict
-        super().setParamMap(paramMap)
-        self.dataset_folder = paramMap["dataset_folder"]
-        w = int(paramMap["input_width"])
-        h = int(paramMap["input_height"])
-        self.input_size = [w, h]
-        self.custom_hyp_file = paramMap["custom_hyp_file"]
-        self.output_folder = paramMap["output_folder"]
-
-    def getParamMap(self):
-        # Send parameters values to Ikomia application
-        # Create the specific dict structure (string container)
-        param_map = super().getParamMap()
-        param_map["dataset_folder"] = self.dataset_folder
-        param_map["input_width"] = str(self.input_size[0])
-        param_map["input_height"] = str(self.input_size[1])
-        param_map["custom_hyp_file"] = self.custom_hyp_file
-        param_map["output_folder"] = self.output_folder
-        return param_map
+        dnntrain.TrainParam.__init__(self)
+        self.cfg["dataset_folder"] = ""
+        self.cfg["model_name"] = "yolov5s"
+        self.cfg["epochs"] = 5
+        self.cfg["batch_size"] = 16
+        self.cfg["input_width"] = 512
+        self.cfg["input_height"] = 512
+        self.cfg["dataset_split_ratio"] = 0.9
+        self.cfg["custom_hyp_file"] = ""
+        self.cfg["output_folder"] = os.path.dirname(os.path.realpath(__file__)) + "/runs/"
 
 
 # --------------------
@@ -126,24 +106,24 @@ class YoloV5TrainProcess(dnntrain.TrainProcess):
         # This is handled by the main progress bar of Ikomia application
         param = self.getParam()
         if param is not None:
-            return param.epochs
+            return param.cfg["epochs"]
         else:
             return 1
 
     def run(self):
         # Core function of your process
-        # Call beginTaskRun for initialization
-        self.beginTaskRun()
-
         param = self.getParam()
         dataset_input = self.getInput(0)
 
         # Conversion from Ikomia dataset to YoloV5
         print("Preparing dataset...")
-        dataset_yaml = YoloV5_dataset.prepare(dataset_input, param.dataset_folder, 0.9)
+        dataset_yaml = YoloV5_dataset.prepare(dataset_input, param.cfg["dataset_folder"], param.cfg["dataset_split_ratio"])
 
         print("Collecting configuration parameters...")
         self.opt = self.load_config(dataset_yaml)
+
+        # Call beginTaskRun for initialization
+        self.beginTaskRun()
 
         print("Start training...")
         self.start_training()
@@ -196,22 +176,20 @@ class YoloV5TrainProcess(dnntrain.TrainProcess):
         opt.data = dataset_yaml
 
         # Override with GUI parameters
-        if param.custom_hyp_file:
-            opt.hyp = param.custom_hyp_file
+        if param.cfg["custom_hyp_file"]:
+            opt.hyp = param.cfg["custom_hyp_file"]
         else:
             opt.hyp = os.path.dirname(yolov5_train.__file__) + "/" + opt.hyp
 
-        opt.weights = param.model_name + ".pt"
-        opt.epochs = param.epochs
-        opt.batch_size = param.batch_size
-        opt.img_size = param.input_size
-        opt.project = param.output_folder
+        opt.weights = param.cfg["model_name"] + ".pt"
+        opt.epochs = param.cfg["epochs"]
+        opt.batch_size = param.cfg["batch_size"]
+        opt.img_size = [param.cfg["input_width"], param.cfg["input_height"]]
+        opt.project = param.cfg["output_folder"]
         opt.stop_train = False
         return opt
 
     def start_training(self):
-        param = self.getParam()
-
         # Set DDP variables
         self.opt.world_size = int(os.environ['WORLD_SIZE']) if 'WORLD_SIZE' in os.environ else 1
         self.opt.global_rank = int(os.environ['RANK']) if 'RANK' in os.environ else -1

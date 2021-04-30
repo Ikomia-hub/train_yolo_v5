@@ -41,7 +41,7 @@ class YoloV5TrainWidget(core.CProtocolTaskWidget):
 
         # Dataset folder
         self.browse_dataset_folder = utils.append_browse_file(self.grid_layout, label="Dataset folder",
-                                                              path=self.parameters.dataset_folder,
+                                                              path=self.parameters.cfg["dataset_folder"],
                                                               tooltip="Select folder",
                                                               mode=QFileDialog.Directory)
 
@@ -51,27 +51,27 @@ class YoloV5TrainWidget(core.CProtocolTaskWidget):
         self.combo_model_name.addItem("yolov5m")
         self.combo_model_name.addItem("yolov5l")
         self.combo_model_name.addItem("yolov5x")
-        self.combo_model_name.setCurrentText(self.parameters.model_name)
+        self.combo_model_name.setCurrentText(self.parameters.cfg["model_name"])
 
         # Epochs
-        self.spin_epochs = utils.append_spin(self.grid_layout, "Epochs", self.parameters.epochs)
+        self.spin_epochs = utils.append_spin(self.grid_layout, "Epochs", self.parameters.cfg["epochs"])
 
         # Batch size
-        self.spin_batch = utils.append_spin(self.grid_layout, "Batch size", self.parameters.batch_size)
+        self.spin_batch = utils.append_spin(self.grid_layout, "Batch size", self.parameters.cfg["batch_size"])
 
         # Input size
-        self.spin_input_w = utils.append_spin(self.grid_layout, "Input width", self.parameters.input_size[0])
-        self.spin_input_h = utils.append_spin(self.grid_layout, "Input height", self.parameters.input_size[1])
+        self.spin_input_w = utils.append_spin(self.grid_layout, "Input width", self.parameters.cfg["input_width"])
+        self.spin_input_h = utils.append_spin(self.grid_layout, "Input height", self.parameters.cfg["input_height"])
 
         # Hyper-parameters
-        custom_hyp = bool(self.parameters.custom_hyp_file)
+        custom_hyp = bool(self.parameters.cfg["custom_hyp_file"])
         self.check_hyp = QCheckBox("Custom hyper-parameters")
         self.check_hyp.setChecked(custom_hyp)
         self.grid_layout.addWidget(self.check_hyp, self.grid_layout.rowCount(), 0, 1, 2)
         self.check_hyp.stateChanged.connect(self.on_custom_hyp_changed)
 
         self.label_hyp = QLabel("Hyper-parameters file")
-        self.browse_hyp_file = utils.BrowseFileWidget(path=self.parameters.custom_hyp_file,
+        self.browse_hyp_file = utils.BrowseFileWidget(path=self.parameters.cfg["custom_hyp_file"],
                                                       tooltip="Select file",
                                                       mode=QFileDialog.ExistingFile)
 
@@ -84,7 +84,7 @@ class YoloV5TrainWidget(core.CProtocolTaskWidget):
 
         # Output folder
         self.browse_out_folder = utils.append_browse_file(self.grid_layout, label="Output folder",
-                                                          path=self.parameters.output_folder,
+                                                          path=self.parameters.cfg["output_folder"],
                                                           tooltip="Select folder",
                                                           mode=QFileDialog.Directory)
 
@@ -101,16 +101,17 @@ class YoloV5TrainWidget(core.CProtocolTaskWidget):
     def onApply(self):
         # Apply button clicked slot
         # Get parameters from widget
-        self.parameters.dataset_folder = self.browse_dataset_folder.path
-        self.parameters.model_name = self.combo_model_name.currentText()
-        self.parameters.epochs = self.spin_epochs.value()
-        self.parameters.batch_size = self.spin_batch.value()
-        self.parameters.input_size = [self.spin_input_w.value(), self.spin_input_h.value()]
+        self.parameters.cfg["dataset_folder"] = self.browse_dataset_folder.path
+        self.parameters.cfg["model_name"] = self.combo_model_name.currentText()
+        self.parameters.cfg["epochs"] = self.spin_epochs.value()
+        self.parameters.cfg["batch_size"] = self.spin_batch.value()
+        self.parameters.cfg["input_width"] = self.spin_input_w.value()
+        self.parameters.cfg["input_height"] = self.spin_input_h.value()
 
         if self.check_hyp.isChecked():
-            self.parameters.custom_hyp_file = self.browse_hyp_file.path
+            self.parameters.cfg["custom_hyp_file"] = self.browse_hyp_file.path
 
-        self.parameters.output_folder = self.browse_out_folder.path
+        self.parameters.cfg["output_folder"] = self.browse_out_folder.path
 
         # Send signal to launch the process
         self.emitApply(self.parameters)
