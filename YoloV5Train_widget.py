@@ -82,11 +82,6 @@ class YoloV5TrainWidget(core.CProtocolTaskWidget):
         self.label_hyp.setVisible(custom_hyp)
         self.browse_hyp_file.setVisible(custom_hyp)
 
-        # Tensorboard
-        self.check_tb = QCheckBox("Launch TensorBoard")
-        self.check_tb.setChecked(self.parameters.launch_tensorboard)
-        self.grid_layout.addWidget(self.check_tb, self.grid_layout.rowCount(), 0, 1, 2)
-
         # Output folder
         self.browse_out_folder = utils.append_browse_file(self.grid_layout, label="Output folder",
                                                           path=self.parameters.output_folder,
@@ -115,7 +110,6 @@ class YoloV5TrainWidget(core.CProtocolTaskWidget):
         if self.check_hyp.isChecked():
             self.parameters.custom_hyp_file = self.browse_hyp_file.path
 
-        self.parameters.launch_tensorboard = self.check_tb.isChecked()
         self.parameters.output_folder = self.browse_out_folder.path
 
         # Send signal to launch the process

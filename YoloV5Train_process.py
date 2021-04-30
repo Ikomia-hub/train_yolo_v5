@@ -27,9 +27,6 @@ import yaml
 import logging
 import random
 import time
-import webbrowser
-import subprocess
-import atexit
 import numpy as np
 from warnings import warn
 import torch
@@ -37,8 +34,6 @@ import torch.distributed as dist
 from torch.utils.tensorboard import SummaryWriter
 from pathlib import Path
 from yolov5 import train as yolov5_train
-#sys.path.insert(0, os.path.dirname(yolov5_train.__file__))
-
 from yolov5.utils.general import check_file, check_git_status, fitness, get_latest_run, increment_path, print_mutation
 from yolov5.utils.torch_utils import select_device
 from yolov5.utils.plots import plot_evolution
@@ -82,7 +77,6 @@ class YoloV5TrainParam(dataprocess.CDnnTrainProcessParam):
         self.batch_size = 16
         self.input_size = [512, 512]
         self.custom_hyp_file = ""
-        self.launch_tensorboard = True
         self.output_folder = os.path.dirname(os.path.realpath(__file__)) + "/runs/"
 
     def setParamMap(self, paramMap):
@@ -94,7 +88,6 @@ class YoloV5TrainParam(dataprocess.CDnnTrainProcessParam):
         h = int(paramMap["input_height"])
         self.input_size = [w, h]
         self.custom_hyp_file = paramMap["custom_hyp_file"]
-        self.launch_tensorboard = bool(paramMap["launch_tensorboard"])
         self.output_folder = paramMap["output_folder"]
 
     def getParamMap(self):
@@ -105,7 +98,6 @@ class YoloV5TrainParam(dataprocess.CDnnTrainProcessParam):
         param_map["input_width"] = str(self.input_size[0])
         param_map["input_height"] = str(self.input_size[1])
         param_map["custom_hyp_file"] = self.custom_hyp_file
-        param_map["launch_tensorboard"] = str(self.launch_tensorboard)
         param_map["output_folder"] = self.output_folder
         return param_map
 
@@ -128,10 +120,6 @@ class YoloV5TrainProcess(dnntrain.TrainProcess):
             self.setParam(copy.deepcopy(param))
 
         self.opt = None
-        self.tensorboard_proc = None
-
-    def __del__(self):
-        self.tensorboard_proc.kill()
 
     def getProgressSteps(self, eltCount=1):
         # Function returning the number of progress steps for this process
@@ -156,10 +144,6 @@ class YoloV5TrainProcess(dnntrain.TrainProcess):
 
         print("Collecting configuration parameters...")
         self.opt = self.load_config(dataset_yaml)
-
-        # Start TensorBoard server
-        if param.launch_tensorboard:
-            self.start_tensorboard(self.opt.project)
 
         print("Start training...")
         self.start_training()
@@ -286,11 +270,8 @@ class YoloV5TrainProcess(dnntrain.TrainProcess):
         if not self.opt.evolve:
             tb_writer = None  # init loggers
             if self.opt.global_rank in [-1, 0]:
-                # Tensorboard
-                if param.launch_tensorboard:
-                    self.open_tensorboard()
-
-                tb_writer = SummaryWriter(self.opt.save_dir)
+                tb_logdir = increment_path(Path(self.getTensorboardLogDir()) / self.opt.name, exist_ok=self.opt.exist_ok | self.opt.evolve)
+                tb_writer = SummaryWriter(tb_logdir)
 
             yolov5_train.train(hyp, self.opt, device, tb_writer, wandb, self.on_epoch_end)
 
@@ -379,18 +360,6 @@ class YoloV5TrainProcess(dnntrain.TrainProcess):
             plot_evolution(yaml_file)
             print(f'Hyperparameter evolution complete. Best results saved as: {yaml_file}\n'
                   f'Command to train a new model with these hyperparameters: $ python train.py --hyp {yaml_file}')
-
-    def start_tensorboard(self, project_folder):
-        if self.tensorboard_proc is None:
-            cmd = ["tensorboard", "--logdir", project_folder]
-            self.tensorboard_proc = subprocess.Popen(cmd)
-            print("Waiting for TensorBoard to start...")
-            time.sleep(5)
-
-    def open_tensorboard(self):
-        if self.tensorboard_proc is not None:
-            url = "http://localhost:6006/"
-            webbrowser.open(url, new=0)
 
     def on_epoch_end(self, metrics, step):
         # Step progress bar:
