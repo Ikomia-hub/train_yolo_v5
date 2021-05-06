@@ -166,7 +166,7 @@ class YoloV5TrainProcess(dnntrain.TrainProcess):
         parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
         parser.add_argument('--quad', action='store_true', help='quad dataloader')
 
-        config_path = os.path.dirname(os.path.realpath(__file__)) + "/config.yaml"
+        config_path = os.path.dirname(os.path.realpath(__file__)) + os.sep + "config.yaml"
 
         with open(config_path) as f:
             config = yaml.load(f, Loader=yaml.FullLoader)
@@ -179,7 +179,7 @@ class YoloV5TrainProcess(dnntrain.TrainProcess):
         if param.cfg["custom_hyp_file"]:
             opt.hyp = param.cfg["custom_hyp_file"]
         else:
-            opt.hyp = os.path.dirname(yolov5_train.__file__) + "/" + opt.hyp
+            opt.hyp = os.path.dirname(yolov5_train.__file__) + os.sep + opt.hyp
 
         opt.weights = param.cfg["model_name"] + ".pt"
         opt.epochs = param.cfg["epochs"]
@@ -187,6 +187,10 @@ class YoloV5TrainProcess(dnntrain.TrainProcess):
         opt.img_size = [param.cfg["input_width"], param.cfg["input_height"]]
         opt.project = param.cfg["output_folder"]
         opt.stop_train = False
+
+        if sys.platform == 'win32':
+            opt.workers = 0
+
         return opt
 
     def start_training(self):
