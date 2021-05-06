@@ -123,7 +123,7 @@ def _create_image_labels(filename, annotations, img_w, img_h):
             f.write('%f ' % cx)
             f.write('%f ' % cy)
             f.write('%f ' % width)
-            f.write('%f \r\n' % height)
+            f.write('%f\n' % height)
 
 
 def _create_dataset_yaml(dataset_folder, train_folder, val_folder, categories):
