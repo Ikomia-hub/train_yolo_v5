@@ -81,6 +81,17 @@ class YoloV5TrainParam(dnntrain.TrainParam):
         self.cfg["custom_hyp_file"] = ""
         self.cfg["output_folder"] = os.path.dirname(os.path.realpath(__file__)) + "/runs/"
 
+    def setParamMap(self, param_map):
+        self.cfg["dataset_folder"] = param_map["dataset_folder"]
+        self.cfg["model_name"] = param_map["model_name"]
+        self.cfg["epochs"] = int(param_map["epochs"])
+        self.cfg["batch_size"] = int(param_map["batch_size"])
+        self.cfg["input_width"] = int(param_map["input_width"])
+        self.cfg["input_height"] = int(param_map["input_height"])
+        self.cfg["dataset_split_ratio"] = float(param_map["dataset_split_ratio"])
+        self.cfg["custom_hyp_file"] = param_map["custom_hyp_file"]
+        self.cfg["output_folder"] = param_map["output_folder"]
+
 
 # --------------------
 # - Class which implements the process
