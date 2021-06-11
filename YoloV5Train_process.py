@@ -146,7 +146,7 @@ class YoloV5TrainProcess(dnntrain.TrainProcess):
         param = self.getParam()
 
         # Configuration options
-        parser = argparse.ArgumentParser()
+        parser = argparse.ArgumentParser(prog=__name__)
         parser.add_argument('--weights', type=str, default='yolov5s.pt', help='initial weights path')
         parser.add_argument('--cfg', type=str, default='', help='model.yaml path')
         parser.add_argument('--data', type=str, default='data/coco128.yaml', help='data.yaml path')
@@ -391,7 +391,19 @@ class YoloV5TrainProcessFactory(dataprocess.CProcessFactory):
         # Set process information as string here
         self.info.name = "YoloV5Train"
         self.info.shortDescription = "Train Ultralytics YoloV5 object detection models."
-        self.info.description = "Train Ultralytics YoloV5 object detection models."
+        self.info.description = "Train Ultralytics YoloV5 object detection models. " \
+                                "This Ikomia plugin can train YoloV5 models for objects detection. " \
+                                "Most common parameters are exposed in the settings window. For expert usage, " \
+                                "it is also possible to select a custom configuration file." \
+                                "To start your training:" \
+                                "create a new workflow, " \
+                                "add a task node loading your dataset in Ikomia format " \
+                                "(consult the marketplace to check if a suitable dataset loader already exists), " \
+                                "add this YoloV5Train train task, " \
+                                "adjust parameters, " \
+                                "and click apply to start the training. " \
+                                "You are able to monitor your training runs through the MLflow and " \
+                                "TensorBoard dashboards."
         self.info.authors = "Ultralytics"
         # relative path -> as displayed in Ikomia application process tree
         self.info.path = "Plugins/Python/Train"
@@ -399,8 +411,9 @@ class YoloV5TrainProcessFactory(dataprocess.CProcessFactory):
         self.info.iconPath = "icons/icon.png"
         self.info.year = 2020
         self.info.license = "GPLv3.0"
+        self.info.documentationLink = "https://github.com/ultralytics/yolov5"
         # Code source repository
-        self.info.repository = "https://github.com/ultralytics/yolov5"
+        self.info.repository = "https://github.com/Ikomia-dev/yolov5"
         # Keywords used for search
         self.info.keywords = "train,object,detection,pytorch"
 
