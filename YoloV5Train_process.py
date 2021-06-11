@@ -192,7 +192,7 @@ class YoloV5TrainProcess(dnntrain.TrainProcess):
         else:
             opt.hyp = os.path.dirname(yolov5_train.__file__) + os.sep + opt.hyp
 
-        opt.weights = param.cfg["model_name"] + ".pt"
+        opt.weights = os.path.dirname(yolov5_train.__file__) + os.sep + param.cfg["model_name"] + ".pt"
         opt.epochs = param.cfg["epochs"]
         opt.batch_size = param.cfg["batch_size"]
         opt.img_size = [param.cfg["input_width"], param.cfg["input_height"]]
