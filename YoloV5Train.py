@@ -17,8 +17,6 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from ikomia import dataprocess
-import YoloV5Train_process as processMod
-import YoloV5Train_widget as widgetMod
 
 
 # --------------------
@@ -32,8 +30,10 @@ class YoloV5Train(dataprocess.CPluginProcessInterface):
 
     def getProcessFactory(self):
         # Instantiate process object
-        return processMod.YoloV5TrainProcessFactory()
+        from YoloV5Train.YoloV5Train_process import YoloV5TrainProcessFactory
+        return YoloV5TrainProcessFactory()
 
     def getWidgetFactory(self):
         # Instantiate associated widget object
-        return widgetMod.YoloV5TrainWidgetFactory()
+        from YoloV5Train.YoloV5Train_widget import YoloV5TrainWidgetFactory
+        return YoloV5TrainWidgetFactory()

@@ -16,8 +16,9 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from ikomia import utils, core, dataprocess
-import YoloV5Train_process as processMod
+from ikomia import core, dataprocess
+from ikomia.utils import pyqtutils, qtconversion
+from YoloV5Train.YoloV5Train_process import YoloV5TrainParam
 # PyQt GUI framework
 from PyQt5.QtWidgets import *
 
@@ -26,13 +27,13 @@ from PyQt5.QtWidgets import *
 # - Class which implements widget associated with the process
 # - Inherits PyCore.CProtocolTaskWidget from Ikomia API
 # --------------------
-class YoloV5TrainWidget(core.CProtocolTaskWidget):
+class YoloV5TrainWidget(core.CWorkflowTaskWidget):
 
     def __init__(self, param, parent):
-        core.CProtocolTaskWidget.__init__(self, parent)
+        core.CWorkflowTaskWidget.__init__(self, parent)
 
         if param is None:
-            self.parameters = processMod.YoloV5TrainParam()
+            self.parameters = YoloV5TrainParam()
         else:
             self.parameters = param
 
@@ -40,13 +41,13 @@ class YoloV5TrainWidget(core.CProtocolTaskWidget):
         self.grid_layout = QGridLayout()
 
         # Dataset folder
-        self.browse_dataset_folder = utils.append_browse_file(self.grid_layout, label="Dataset folder",
-                                                              path=self.parameters.cfg["dataset_folder"],
-                                                              tooltip="Select folder",
-                                                              mode=QFileDialog.Directory)
+        self.browse_dataset_folder = pyqtutils.append_browse_file(self.grid_layout, label="Dataset folder",
+                                                                  path=self.parameters.cfg["dataset_folder"],
+                                                                  tooltip="Select folder",
+                                                                  mode=QFileDialog.Directory)
 
         # Model name
-        self.combo_model_name = utils.append_combo(self.grid_layout, "Model name")
+        self.combo_model_name = pyqtutils.append_combo(self.grid_layout, "Model name")
         self.combo_model_name.addItem("yolov5s")
         self.combo_model_name.addItem("yolov5m")
         self.combo_model_name.addItem("yolov5l")
@@ -54,14 +55,14 @@ class YoloV5TrainWidget(core.CProtocolTaskWidget):
         self.combo_model_name.setCurrentText(self.parameters.cfg["model_name"])
 
         # Epochs
-        self.spin_epochs = utils.append_spin(self.grid_layout, "Epochs", self.parameters.cfg["epochs"])
+        self.spin_epochs = pyqtutils.append_spin(self.grid_layout, "Epochs", self.parameters.cfg["epochs"])
 
         # Batch size
-        self.spin_batch = utils.append_spin(self.grid_layout, "Batch size", self.parameters.cfg["batch_size"])
+        self.spin_batch = pyqtutils.append_spin(self.grid_layout, "Batch size", self.parameters.cfg["batch_size"])
 
         # Input size
-        self.spin_input_w = utils.append_spin(self.grid_layout, "Input width", self.parameters.cfg["input_width"])
-        self.spin_input_h = utils.append_spin(self.grid_layout, "Input height", self.parameters.cfg["input_height"])
+        self.spin_input_w = pyqtutils.append_spin(self.grid_layout, "Input width", self.parameters.cfg["input_width"])
+        self.spin_input_h = pyqtutils.append_spin(self.grid_layout, "Input height", self.parameters.cfg["input_height"])
 
         # Hyper-parameters
         custom_hyp = bool(self.parameters.cfg["custom_hyp_file"])
@@ -71,9 +72,9 @@ class YoloV5TrainWidget(core.CProtocolTaskWidget):
         self.check_hyp.stateChanged.connect(self.on_custom_hyp_changed)
 
         self.label_hyp = QLabel("Hyper-parameters file")
-        self.browse_hyp_file = utils.BrowseFileWidget(path=self.parameters.cfg["custom_hyp_file"],
-                                                      tooltip="Select file",
-                                                      mode=QFileDialog.ExistingFile)
+        self.browse_hyp_file = pyqtutils.BrowseFileWidget(path=self.parameters.cfg["custom_hyp_file"],
+                                                          tooltip="Select file",
+                                                          mode=QFileDialog.ExistingFile)
 
         row = self.grid_layout.rowCount()
         self.grid_layout.addWidget(self.label_hyp, row, 0)
@@ -83,13 +84,13 @@ class YoloV5TrainWidget(core.CProtocolTaskWidget):
         self.browse_hyp_file.setVisible(custom_hyp)
 
         # Output folder
-        self.browse_out_folder = utils.append_browse_file(self.grid_layout, label="Output folder",
-                                                          path=self.parameters.cfg["output_folder"],
-                                                          tooltip="Select folder",
-                                                          mode=QFileDialog.Directory)
+        self.browse_out_folder = pyqtutils.append_browse_file(self.grid_layout, label="Output folder",
+                                                              path=self.parameters.cfg["output_folder"],
+                                                              tooltip="Select folder",
+                                                              mode=QFileDialog.Directory)
 
         # PyQt -> Qt wrapping
-        layout_ptr = utils.PyQtToQt(self.grid_layout)
+        layout_ptr = qtconversion.PyQtToQt(self.grid_layout)
 
         # Set widget layout
         self.setLayout(layout_ptr)

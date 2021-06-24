@@ -37,7 +37,7 @@ from yolov5 import train as yolov5_train
 from yolov5.utils.general import check_file, check_git_status, fitness, get_latest_run, increment_path, print_mutation
 from yolov5.utils.torch_utils import select_device
 from yolov5.utils.plots import plot_evolution
-import YoloV5_dataset
+from YoloV5Train import YoloV5_dataset
 
 
 logger = logging.getLogger()
@@ -369,10 +369,10 @@ class YoloV5TrainProcess(dnntrain.TrainProcess):
 # - Factory class to build process object
 # - Inherits PyDataProcess.CProcessFactory from Ikomia API
 # --------------------
-class YoloV5TrainProcessFactory(dataprocess.CProcessFactory):
+class YoloV5TrainProcessFactory(dataprocess.CTaskFactory):
 
     def __init__(self):
-        dataprocess.CProcessFactory.__init__(self)
+        dataprocess.CTaskFactory.__init__(self)
         # Set process information as string here
         self.info.name = "YoloV5Train"
         self.info.shortDescription = "Train Ultralytics YoloV5 object detection models."
