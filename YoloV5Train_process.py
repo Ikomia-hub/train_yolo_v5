@@ -17,6 +17,7 @@
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 from ikomia import core, dataprocess
+from ikomia.core.task import TaskParam
 from ikomia.dnn import datasetio, dnntrain
 import argparse
 import copy
@@ -67,10 +68,10 @@ def init_logging(rank=-1):
 # - Class to handle the process parameters
 # - Inherits PyCore.CProtocolTaskParam from Ikomia API
 # --------------------
-class YoloV5TrainParam(dnntrain.TrainParam):
+class YoloV5TrainParam(TaskParam):
 
     def __init__(self):
-        dnntrain.TrainParam.__init__(self)
+        TaskParam.__init__(self)
         self.cfg["dataset_folder"] = ""
         self.cfg["model_name"] = "yolov5s"
         self.cfg["epochs"] = 5
