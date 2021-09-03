@@ -184,7 +184,7 @@ class YoloV5TrainProcess(dnntrain.TrainProcess):
             config = yaml.load(f, Loader=yaml.FullLoader)
             parser.set_defaults(**config)
 
-        opt = parser.parse_args()
+        opt = parser.parse_args(args=[])
         opt.data = dataset_yaml
 
         # Override with GUI parameters
