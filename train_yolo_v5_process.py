@@ -38,7 +38,7 @@ from yolov5 import train as yolov5_train
 from yolov5.utils.general import check_file, check_git_status, fitness, get_latest_run, increment_path, print_mutation
 from yolov5.utils.torch_utils import select_device
 from yolov5.utils.plots import plot_evolution
-from YoloV5Train import YoloV5_dataset
+from train_yolo_v5 import yolo_v5_dataset
 
 
 logger = logging.getLogger()
@@ -68,7 +68,7 @@ def init_logging(rank=-1):
 # - Class to handle the process parameters
 # - Inherits PyCore.CProtocolTaskParam from Ikomia API
 # --------------------
-class YoloV5TrainParam(TaskParam):
+class TrainYoloV5Param(TaskParam):
 
     def __init__(self):
         TaskParam.__init__(self)
@@ -97,7 +97,7 @@ class YoloV5TrainParam(TaskParam):
 # - Class which implements the process
 # - Inherits PyCore.CProtocolTask or derived from Ikomia API
 # --------------------
-class YoloV5TrainProcess(dnntrain.TrainProcess):
+class TrainYoloV5(dnntrain.TrainProcess):
 
     def __init__(self, name, param):
         dnntrain.TrainProcess.__init__(self, name, param)
@@ -106,7 +106,7 @@ class YoloV5TrainProcess(dnntrain.TrainProcess):
 
         # Create parameters class
         if param is None:
-            self.setParam(YoloV5TrainParam())
+            self.setParam(TrainYoloV5Param())
         else:
             self.setParam(copy.deepcopy(param))
 
@@ -129,7 +129,7 @@ class YoloV5TrainProcess(dnntrain.TrainProcess):
         # Conversion from Ikomia dataset to YoloV5
         print("Preparing dataset...")
         print(param.cfg)
-        dataset_yaml = YoloV5_dataset.prepare(dataset_input, param.cfg["dataset_folder"], param.cfg["dataset_split_ratio"])
+        dataset_yaml = yolo_v5_dataset.prepare(dataset_input, param.cfg["dataset_folder"], param.cfg["dataset_split_ratio"])
 
         print("Collecting configuration parameters...")
         self.opt = self.load_config(dataset_yaml)
@@ -381,12 +381,12 @@ class YoloV5TrainProcess(dnntrain.TrainProcess):
 # - Factory class to build process object
 # - Inherits PyDataProcess.CProcessFactory from Ikomia API
 # --------------------
-class YoloV5TrainProcessFactory(dataprocess.CTaskFactory):
+class TrainYoloV5Factory(dataprocess.CTaskFactory):
 
     def __init__(self):
         dataprocess.CTaskFactory.__init__(self)
         # Set process information as string here
-        self.info.name = "YoloV5Train"
+        self.info.name = "train_yolo_v5"
         self.info.shortDescription = "Train Ultralytics YoloV5 object detection models."
         self.info.description = "Train Ultralytics YoloV5 object detection models."
         self.info.authors = "Ultralytics"
@@ -403,4 +403,4 @@ class YoloV5TrainProcessFactory(dataprocess.CTaskFactory):
 
     def create(self, param=None):
         # Create process object
-        return YoloV5TrainProcess(self.info.name, param)
+        return TrainYoloV5(self.info.name, param)

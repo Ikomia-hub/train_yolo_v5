@@ -23,17 +23,17 @@ from ikomia import dataprocess
 # - Interface class to integrate the process with Ikomia application
 # - Inherits PyDataProcess.CPluginProcessInterface from Ikomia API
 # --------------------
-class YoloV5Train(dataprocess.CPluginProcessInterface):
+class IkomiaPlugin(dataprocess.CPluginProcessInterface):
 
     def __init__(self):
         dataprocess.CPluginProcessInterface.__init__(self)
 
     def getProcessFactory(self):
         # Instantiate process object
-        from YoloV5Train.YoloV5Train_process import YoloV5TrainProcessFactory
-        return YoloV5TrainProcessFactory()
+        from train_yolo_v5.train_yolo_v5_process import TrainYoloV5Factory
+        return TrainYoloV5Factory()
 
     def getWidgetFactory(self):
         # Instantiate associated widget object
-        from YoloV5Train.YoloV5Train_widget import YoloV5TrainWidgetFactory
-        return YoloV5TrainWidgetFactory()
+        from train_yolo_v5.train_yolo_v5_widget import TrainYoloV5WidgetFactory
+        return TrainYoloV5WidgetFactory()

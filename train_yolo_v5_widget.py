@@ -18,7 +18,7 @@
 
 from ikomia import core, dataprocess
 from ikomia.utils import pyqtutils, qtconversion
-from YoloV5Train.YoloV5Train_process import YoloV5TrainParam
+from train_yolo_v5.train_yolo_v5_process import TrainYoloV5Param
 # PyQt GUI framework
 from PyQt5.QtWidgets import *
 
@@ -27,13 +27,13 @@ from PyQt5.QtWidgets import *
 # - Class which implements widget associated with the process
 # - Inherits PyCore.CProtocolTaskWidget from Ikomia API
 # --------------------
-class YoloV5TrainWidget(core.CWorkflowTaskWidget):
+class TrainYoloV5Widget(core.CWorkflowTaskWidget):
 
     def __init__(self, param, parent):
         core.CWorkflowTaskWidget.__init__(self, parent)
 
         if param is None:
-            self.parameters = YoloV5TrainParam()
+            self.parameters = TrainYoloV5Param()
         else:
             self.parameters = param
 
@@ -122,13 +122,13 @@ class YoloV5TrainWidget(core.CWorkflowTaskWidget):
 # - Factory class to build process widget object
 # - Inherits PyDataProcess.CWidgetFactory from Ikomia API
 # --------------------
-class YoloV5TrainWidgetFactory(dataprocess.CWidgetFactory):
+class TrainYoloV5WidgetFactory(dataprocess.CWidgetFactory):
 
     def __init__(self):
         dataprocess.CWidgetFactory.__init__(self)
         # Set the name of the process -> it must be the same as the one declared in the process factory class
-        self.name = "YoloV5Train"
+        self.name = "train_yolo_v5"
 
     def create(self, param):
         # Create widget object
-        return YoloV5TrainWidget(param, None)
+        return TrainYoloV5Widget(param, None)
