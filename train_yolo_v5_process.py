@@ -144,6 +144,9 @@ class TrainYoloV5(dnntrain.TrainProcess):
     def load_config(self, dataset_yaml):
         param = self.getParam()
 
+        if len(sys.argv) == 0:
+            sys.argv = ["ikomia"]
+
         # Configuration options
         parser = argparse.ArgumentParser()
         parser.add_argument('--weights', type=str, default='yolov5s.pt', help='initial weights path')
