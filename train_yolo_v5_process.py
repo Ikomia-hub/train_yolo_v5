@@ -16,50 +16,52 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from ikomia import core, dataprocess
+from ikomia import dataprocess
 from ikomia.core.task import TaskParam
-from ikomia.dnn import datasetio, dnntrain
+from ikomia.dnn import dnntrain
 import argparse
 import copy
 import os
 import sys
-# Your imports below
 import yaml
 import logging
 import random
 import time
 import numpy as np
-from warnings import warn
 import torch
 import torch.distributed as dist
-from torch.utils.tensorboard import SummaryWriter
 from pathlib import Path
 from yolov5 import train as yolov5_train
-from yolov5.utils.general import check_file, check_git_status, fitness, get_latest_run, increment_path, print_mutation
+from yolov5.utils.general import check_file, check_yaml, fitness, get_latest_run, increment_path, \
+    print_mutation, colorstr
 from yolov5.utils.torch_utils import select_device
-from yolov5.utils.plots import plot_evolution
+from yolov5.utils.plots import plot_evolve
+from yolov5.utils.callbacks import Callbacks
 from train_yolo_v5 import yolo_v5_dataset
 
 
-logger = logging.getLogger()
-wandb = None
+_logger = logging.getLogger()
+_plugin_folder = os.path.dirname(os.path.realpath(__file__))
+_local_rank = int(os.getenv('LOCAL_RANK', -1))
+_rank = int(os.getenv('RANK', -1))
+_world_size = int(os.getenv('WORLD_SIZE', 1))
 
 
 def init_logging(rank=-1):
     if rank in [-1, 0]:
-        logger.handlers = []
-        logger.setLevel(logging.INFO)
+        _logger.handlers = []
+        _logger.setLevel(logging.INFO)
         formatter = logging.Formatter("%(message)s")
 
         info = logging.StreamHandler(sys.stdout)
         info.setLevel(logging.INFO)
         info.setFormatter(formatter)
-        logger.addHandler(info)
+        _logger.addHandler(info)
 
         err = logging.StreamHandler(sys.stderr)
         err.setLevel(logging.ERROR)
         err.setFormatter(formatter)
-        logger.addHandler(err)
+        _logger.addHandler(err)
     else:
         logging.basicConfig(format="%(message)s", level=logging.WARN)
 
@@ -72,9 +74,15 @@ class TrainYoloV5Param(TaskParam):
 
     def __init__(self):
         TaskParam.__init__(self)
+
+        # Create models folder
+        models_folder = os.path.join(os.path.dirname(os.path.realpath(__file__)), "models")
+        os.makedirs(models_folder, exist_ok=True)
+
         self.cfg["dataset_folder"] = ""
         self.cfg["model_name"] = "yolov5s"
-        self.cfg["epochs"] = 5
+        self.cfg["model_path"] = models_folder + os.sep + self.cfg["model_name"] + ".pt"
+        self.cfg["epochs"] = 10
         self.cfg["batch_size"] = 16
         self.cfg["input_width"] = 512
         self.cfg["input_height"] = 512
@@ -85,6 +93,7 @@ class TrainYoloV5Param(TaskParam):
     def setParamMap(self, param_map):
         self.cfg["dataset_folder"] = param_map["dataset_folder"]
         self.cfg["model_name"] = param_map["model_name"]
+        self.cfg["model_path"] = param_map["model_path"]
         self.cfg["epochs"] = int(param_map["epochs"])
         self.cfg["batch_size"] = int(param_map["batch_size"])
         self.cfg["input_width"] = int(param_map["input_width"])
@@ -92,6 +101,7 @@ class TrainYoloV5Param(TaskParam):
         self.cfg["dataset_split_ratio"] = float(param_map["dataset_split_ratio"])
         self.cfg["custom_hyp_file"] = param_map["custom_hyp_file"]
         self.cfg["output_folder"] = param_map["output_folder"]
+
 
 # --------------------
 # - Class which implements the process
@@ -109,6 +119,10 @@ class TrainYoloV5(dnntrain.TrainProcess):
             self.setParam(copy.deepcopy(param))
 
         self.opt = None
+        self.keys = ['train/box_loss', 'train/obj_loss', 'train/cls_loss',  # train loss
+                     'metrics/precision', 'metrics/recall', 'metrics/mAP_0.5', 'metrics/mAP_0.5:0.95',  # metrics
+                     'val/box_loss', 'val/obj_loss', 'val/cls_loss',  # val loss
+                     'x/lr0', 'x/lr1', 'x/lr2']  # params
 
     def getProgressSteps(self, eltCount=1):
         # Function returning the number of progress steps for this process
@@ -152,32 +166,35 @@ class TrainYoloV5(dnntrain.TrainProcess):
         parser.add_argument('--weights', type=str, default='yolov5s.pt', help='initial weights path')
         parser.add_argument('--cfg', type=str, default='', help='model.yaml path')
         parser.add_argument('--data', type=str, default='data/coco128.yaml', help='data.yaml path')
-        parser.add_argument('--hyp', type=str, default='data/hyp.scratch.yaml', help='hyperparameters path')
+        parser.add_argument('--hyp', type=str, default='data/hyps/hyp.scratch.yaml', help='hyperparameters path')
         parser.add_argument('--epochs', type=int, default=300)
         parser.add_argument('--batch-size', type=int, default=16, help='total batch size for all GPUs')
-        parser.add_argument('--img-size', nargs='+', type=int, default=[640, 640], help='[train, test] image sizes')
+        parser.add_argument('--imgsz', '--img', '--img-size', type=int, default=640, help='train, val image size (pixels)')
         parser.add_argument('--rect', action='store_true', help='rectangular training')
         parser.add_argument('--resume', nargs='?', const=True, default=False, help='resume most recent training')
         parser.add_argument('--nosave', action='store_true', help='only save final checkpoint')
-        parser.add_argument('--notest', action='store_true', help='only test final epoch')
+        parser.add_argument('--noval', action='store_true', help='only validate final epoch')
         parser.add_argument('--noautoanchor', action='store_true', help='disable autoanchor check')
         parser.add_argument('--evolve', action='store_true', help='evolve hyperparameters')
         parser.add_argument('--bucket', type=str, default='', help='gsutil bucket')
-        parser.add_argument('--cache-images', action='store_true', help='cache images for faster training')
+        parser.add_argument('--cache', type=str, nargs='?', const='ram', help='--cache images in "ram" (default) or "disk"')
         parser.add_argument('--image-weights', action='store_true', help='use weighted image selection for training')
         parser.add_argument('--device', default='', help='cuda device, i.e. 0 or 0,1,2,3 or cpu')
         parser.add_argument('--multi-scale', action='store_true', help='vary img-size +/- 50%%')
         parser.add_argument('--single-cls', action='store_true', help='train multi-class data as single-class')
         parser.add_argument('--adam', action='store_true', help='use torch.optim.Adam() optimizer')
         parser.add_argument('--sync-bn', action='store_true', help='use SyncBatchNorm, only available in DDP mode')
-        parser.add_argument('--local_rank', type=int, default=-1, help='DDP parameter, do not modify')
-        parser.add_argument('--log-imgs', type=int, default=16, help='number of images for W&B logging, max 100')
-        parser.add_argument('--log-artifacts', action='store_true', help='log artifacts, i.e. final trained model')
         parser.add_argument('--workers', type=int, default=8, help='maximum number of dataloader workers')
         parser.add_argument('--project', default='runs/train', help='save to project/name')
         parser.add_argument('--name', default='exp', help='save to project/name')
         parser.add_argument('--exist-ok', action='store_true', help='existing project/name ok, do not increment')
         parser.add_argument('--quad', action='store_true', help='quad dataloader')
+        parser.add_argument('--linear-lr', action='store_true', help='linear LR')
+        parser.add_argument('--label-smoothing', type=float, default=0.0, help='Label smoothing epsilon')
+        parser.add_argument('--patience', type=int, default=100, help='EarlyStopping patience (epochs without improvement)')
+        parser.add_argument('--freeze', type=int, default=0, help='Number of layers to freeze. backbone=10, all=24')
+        parser.add_argument('--save-period', type=int, default=-1, help='Save checkpoint every x epochs (disabled if < 1)')
+        parser.add_argument('--local_rank', type=int, default=-1, help='DDP parameter, do not modify')
 
         config_path = os.path.dirname(os.path.realpath(__file__)) + "/config.yaml"
 
@@ -194,77 +211,60 @@ class TrainYoloV5(dnntrain.TrainProcess):
         else:
             opt.hyp = os.path.dirname(yolov5_train.__file__) + "/" + opt.hyp
 
-        opt.weights = param.cfg["model_name"] + ".pt"
+        opt.weights = param.cfg["model_path"]
         opt.epochs = param.cfg["epochs"]
         opt.batch_size = param.cfg["batch_size"]
         opt.img_size = [param.cfg["input_width"], param.cfg["input_height"]]
         opt.project = param.cfg["output_folder"]
+        opt.tb_dir = str(increment_path(Path(self.getTensorboardLogDir()) / opt.name, exist_ok=opt.exist_ok))
         opt.stop_train = False
+
+        if sys.platform == 'win32':
+            opt.workers = 0
+
         return opt
 
     def start_training(self):
-        # Set DDP variables
-        self.opt.world_size = int(os.environ['WORLD_SIZE']) if 'WORLD_SIZE' in os.environ else 1
-        self.opt.global_rank = int(os.environ['RANK']) if 'RANK' in os.environ else -1
-        init_logging(self.opt.global_rank)
+        callbacks = Callbacks()
 
-        if self.opt.global_rank in [-1, 0]:
-            check_git_status()
+        # Register callback for mlflow
+        callbacks.register_action("on_fit_epoch_end", callback=self.on_epoch_end)
 
         # Resume
-        if self.opt.resume:  # resume an interrupted run
+        if self.opt.resume and not self.opt.evolve:  # resume an interrupted run
             ckpt = self.opt.resume if isinstance(self.opt.resume, str) else get_latest_run()  # specified or most recent path
             assert os.path.isfile(ckpt), 'ERROR: --resume checkpoint does not exist'
-            apriori = self.opt.global_rank, self.opt.local_rank
-
-            with open(Path(ckpt).parent.parent / 'opt.yaml') as f:
-                self.opt = argparse.Namespace(**yaml.load(f, Loader=yaml.FullLoader))  # replace
-
-            # reinstate
-            self.opt.cfg, self.opt.weights, self.opt.resume, self.opt.global_rank, self.opt.local_rank = '', ckpt, True, *apriori
-            logger.info('Resuming training from %s' % ckpt)
+            with open(Path(ckpt).parent.parent / 'opt.yaml', errors='ignore') as f:
+                opt = argparse.Namespace(**yaml.safe_load(f))  # replace
+            opt.cfg, opt.weights, opt.resume = '', ckpt, True  # reinstate
+            _logger.info(f'Resuming training from {ckpt}')
         else:
-            # opt.hyp = opt.hyp or ('hyp.finetune.yaml' if opt.weights else 'hyp.scratch.yaml')
-            # check files
-            self.opt.data = check_file(self.opt.data)
-            self.opt.cfg = check_file(self.opt.cfg)
-            self.opt.hyp = check_file(self.opt.hyp)
+            self.opt.data, self.opt.cfg, self.opt.hyp, self.opt.weights, self.opt.project = \
+                check_file(self.opt.data), check_yaml(self.opt.cfg), check_yaml(self.opt.hyp), \
+                str(self.opt.weights), str(self.opt.project)  # checks
             assert len(self.opt.cfg) or len(self.opt.weights), 'either --cfg or --weights must be specified'
-            # extend to 2 sizes (train, test)
-            self.opt.img_size.extend([self.opt.img_size[-1]] * (2 - len(self.opt.img_size)))
-            self.opt.name = 'evolve' if self.opt.evolve else self.opt.name
-            # increment run
-            self.opt.save_dir = increment_path(Path(self.opt.project) / self.opt.name, exist_ok=self.opt.exist_ok | self.opt.evolve)
+            if self.opt.evolve:
+                self.opt.project = str(_plugin_folder / 'runs/evolve')
+                self.opt.exist_ok, self.opt.resume = self.opt.resume, False  # pass resume to exist_ok and disable resume
+            self.opt.save_dir = str(increment_path(Path(self.opt.project) / self.opt.name, exist_ok=self.opt.exist_ok))
 
         # DDP mode
-        self.opt.total_batch_size = self.opt.batch_size
         device = select_device(self.opt.device, batch_size=self.opt.batch_size)
-
-        if self.opt.local_rank != -1:
-            assert torch.cuda.device_count() > self.opt.local_rank
-            torch.cuda.set_device(self.opt.local_rank)
-            device = torch.device('cuda', self.opt.local_rank)
-            dist.init_process_group(backend='nccl', init_method='env://')  # distributed backend
-            assert self.opt.batch_size % self.opt.world_size == 0, '--batch-size must be multiple of CUDA device count'
-            self.opt.batch_size = self.opt.total_batch_size // self.opt.world_size
-
-        # Hyperparameters
-        with open(self.opt.hyp) as f:
-            hyp = yaml.load(f, Loader=yaml.FullLoader)  # load hyps
-            if 'box' not in hyp:
-                warn('Compatibility: %s missing "box" which was renamed from "giou" in %s' %
-                     (self.opt.hyp, 'https://github.com/ultralytics/yolov5/pull/1120'))
-                hyp['box'] = hyp.pop('giou')
+        if _local_rank != -1:
+            assert torch.cuda.device_count() > _local_rank, 'insufficient CUDA devices for DDP command'
+            assert self.opt.batch_size % _world_size == 0, '--batch-size must be multiple of CUDA device count'
+            assert not self.opt.image_weights, '--image-weights argument is not compatible with DDP training'
+            assert not self.opt.evolve, '--evolve argument is not compatible with DDP training'
+            torch.cuda.set_device(_local_rank)
+            device = torch.device('cuda', _local_rank)
+            dist.init_process_group(backend="nccl" if dist.is_nccl_available() else "gloo")
 
         # Train
-        logger.info(self.opt)
         if not self.opt.evolve:
-            tb_writer = None  # init loggers
-            if self.opt.global_rank in [-1, 0]:
-                tb_logdir = increment_path(Path(self.getTensorboardLogDir()) / self.opt.name, exist_ok=self.opt.exist_ok | self.opt.evolve)
-                tb_writer = SummaryWriter(tb_logdir)
-
-            yolov5_train.train(hyp, self.opt, device, tb_writer, wandb, self.on_epoch_end)
+            yolov5_train.train(self.opt.hyp, self.opt, device, callbacks)
+            if _world_size > 1 and _rank == 0:
+                _logger.info('Destroying process group... ')
+                dist.destroy_process_group()
 
         # Evolve hyperparameters (optional)
         else:
@@ -296,25 +296,27 @@ class TrainYoloV5(dnntrain.TrainProcess):
                     'flipud': (1, 0.0, 1.0),  # image flip up-down (probability)
                     'fliplr': (0, 0.0, 1.0),  # image flip left-right (probability)
                     'mosaic': (1, 0.0, 1.0),  # image mixup (probability)
-                    'mixup': (1, 0.0, 1.0)}  # image mixup (probability)
+                    'mixup': (1, 0.0, 1.0),  # image mixup (probability)
+                    'copy_paste': (1, 0.0, 1.0)}  # segment copy-paste (probability)
 
-            assert self.opt.local_rank == -1, 'DDP mode not implemented for --evolve'
-            self.opt.notest, self.opt.nosave = True, True  # only test/save final epoch
+            with open(self.opt.hyp, errors='ignore') as f:
+                hyp = yaml.safe_load(f)  # load hyps dict
+                if 'anchors' not in hyp:  # anchors commented in hyp.yaml
+                    hyp['anchors'] = 3
+            self.opt.noval, self.opt.nosave, save_dir = True, True, Path(self.opt.save_dir)  # only val/save final epoch
             # ei = [isinstance(x, (int, float)) for x in hyp.values()]  # evolvable indices
-            yaml_file = Path(self.opt.save_dir) / 'hyp_evolved.yaml'  # save best result here
+            evolve_yaml, evolve_csv = save_dir / 'hyp_evolve.yaml', save_dir / 'evolve.csv'
+            if opt.bucket:
+                os.system(f'gsutil cp gs://{self.opt.bucket}/evolve.csv {save_dir}')  # download evolve.csv if exists
 
-            if self.opt.bucket:
-                os.system('gsutil cp gs://%s/evolve.txt .' % self.opt.bucket)  # download evolve.txt if exists
-
-            for _ in range(300):  # generations to evolve
-                if Path('evolve.txt').exists():  # if evolve.txt exists: select best hyps and mutate
+            for _ in range(self.opt.evolve):  # generations to evolve
+                if evolve_csv.exists():  # if evolve.csv exists: select best hyps and mutate
                     # Select parent(s)
                     parent = 'single'  # parent selection method: 'single' or 'weighted'
-                    x = np.loadtxt('evolve.txt', ndmin=2)
+                    x = np.loadtxt(evolve_csv, ndmin=2, delimiter=',', skiprows=1)
                     n = min(5, len(x))  # number of previous results to consider
                     x = x[np.argsort(-fitness(x))][:n]  # top n mutations
-                    w = fitness(x) - fitness(x).min()  # weights
-
+                    w = fitness(x) - fitness(x).min() + 1E-6  # weights (sum > 0)
                     if parent == 'single' or len(x) == 1:
                         # x = x[random.randint(0, n - 1)]  # random selection
                         x = x[random.choices(range(n), weights=w)[0]]  # weighted selection
@@ -325,13 +327,11 @@ class TrainYoloV5(dnntrain.TrainProcess):
                     mp, s = 0.8, 0.2  # mutation probability, sigma
                     npr = np.random
                     npr.seed(int(time.time()))
-                    g = np.array([x[0] for x in meta.values()])  # gains 0-1
+                    g = np.array([meta[k][0] for k in hyp.keys()])  # gains 0-1
                     ng = len(meta)
                     v = np.ones(ng)
-
                     while all(v == 1):  # mutate until a change occurs (prevent duplicates)
                         v = (g * (npr.random(ng) < mp) * npr.randn(ng) * npr.random() * s + 1).clip(0.3, 3.0)
-
                     for i, k in enumerate(hyp.keys()):  # plt.hist(v.ravel(), 300)
                         hyp[k] = float(x[i + 7] * v[i])  # mutate
 
@@ -342,22 +342,24 @@ class TrainYoloV5(dnntrain.TrainProcess):
                     hyp[k] = round(hyp[k], 5)  # significant digits
 
                 # Train mutation
-                results = yolov5_train.train(hyp.copy(), self.opt, device, wandb=wandb)
+                results = yolov5_train.train(hyp.copy(), self.opt, device, callbacks)
 
                 # Write mutation results
-                print_mutation(hyp.copy(), results, yaml_file, self.opt.bucket)
+                print_mutation(results, hyp.copy(), save_dir, self.opt.bucket)
 
             # Plot results
-            plot_evolution(yaml_file)
-            print(f'Hyperparameter evolution complete. Best results saved as: {yaml_file}\n'
-                  f'Command to train a new model with these hyperparameters: $ python train.py --hyp {yaml_file}')
+            plot_evolve(evolve_csv)
+            print(f'Hyperparameter evolution finished\n'
+                  f"Results saved to {colorstr('bold', save_dir)}\n"
+                  f'Use best hyperparameters example: $ python train.py --hyp {evolve_yaml}')
 
-    def on_epoch_end(self, metrics, step):
+    def on_epoch_end(self, vals, epoch, best_fitness, fi):
         # Step progress bar:
         self.emitStepProgress()
         # Log metrics
-        metrics = self.conform_metrics(metrics)
-        self.log_metrics(metrics, step)
+        x = {k: v for k, v in zip(self.keys, vals)}  # dict
+        metrics = self.conform_metrics(x)
+        self.log_metrics(metrics, epoch)
 
     def stop(self):
         super().stop()

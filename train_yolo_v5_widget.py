@@ -48,6 +48,7 @@ class TrainYoloV5Widget(core.CWorkflowTaskWidget):
 
         # Model name
         self.combo_model_name = pyqtutils.append_combo(self.grid_layout, "Model name")
+        self.combo_model_name.addItem("yolov5n")
         self.combo_model_name.addItem("yolov5s")
         self.combo_model_name.addItem("yolov5m")
         self.combo_model_name.addItem("yolov5l")
