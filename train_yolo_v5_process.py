@@ -124,7 +124,7 @@ class TrainYoloV5(dnntrain.TrainProcess):
                      'val/box_loss', 'val/obj_loss', 'val/cls_loss',  # val loss
                      'x/lr0', 'x/lr1', 'x/lr2']  # params
 
-    def getProgressSteps(self, eltCount=1):
+    def getProgressSteps(self):
         # Function returning the number of progress steps for this process
         # This is handled by the main progress bar of Ikomia application
         param = self.getParam()
