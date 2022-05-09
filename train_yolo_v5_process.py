@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-from ikomia import dataprocess
+from ikomia import dataprocess, core
 from ikomia.core.task import TaskParam
 from ikomia.dnn import dnntrain
 import argparse
@@ -216,7 +216,8 @@ class TrainYoloV5(dnntrain.TrainProcess):
         opt.batch_size = param.cfg["batch_size"]
         opt.img_size = [param.cfg["input_width"], param.cfg["input_height"]]
         opt.project = param.cfg["output_folder"]
-        opt.tb_dir = str(increment_path(Path(self.getTensorboardLogDir()) / opt.name, exist_ok=opt.exist_ok))
+        opt.tb_dir = str(increment_path(Path(core.config.main_cfg["tensorboard"]["log_uri"]) / opt.name,
+                                        exist_ok=opt.exist_ok))
         opt.stop_train = False
 
         if sys.platform == 'win32':
