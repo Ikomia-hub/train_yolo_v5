@@ -395,7 +395,7 @@ class TrainYoloV5Factory(dataprocess.CTaskFactory):
         self.info.description = "Train Ultralytics YoloV5 object detection models."
         self.info.authors = "Ultralytics"
         # relative path -> as displayed in Ikomia application process tree
-        self.info.path = "Plugins/Python/Train"
+        self.info.path = "Plugins/Python/Detection"
         self.info.version = "1.0.0"
         self.info.iconPath = "icons/icon.png"
         self.info.year = 2020
