@@ -11,6 +11,7 @@ def test(t, data_dict):
     input_dataset = t.getInput(0)
     params = task.get_parameters(t)
     dataset_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "images")
+    os.makedirs(dataset_folder, exist_ok=True)
     params["epochs"] = 2
     params["batch_size"] = 1
     params["dataset_folder"] = dataset_folder
