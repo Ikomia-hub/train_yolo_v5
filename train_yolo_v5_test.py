@@ -13,5 +13,5 @@ def test(t, data_dict):
     params["epochs"] = 2
     params["batch_size"] = 1
     task.set_parameters(t, params)
-    input_dataset.load(data_dict["datasets"]["detection"]["dataset_coco"])
+    input_dataset.load(data_dict["datasets"]["detection"]["dataset_wgisd"])
     yield run_for_test(t)
