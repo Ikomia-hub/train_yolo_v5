@@ -17,5 +17,5 @@ def test(t, data_dict):
     params["dataset_folder"] = dataset_folder
     params["dataset_split_ratio"] = 0.5
     task.set_parameters(t, params)
-    input_dataset.load(data_dict["datasets"]["detection"]["dataset_wgisd"])
+    input_dataset.load(data_dict["datasets"]["detection"]["dataset_coco"])
     yield run_for_test(t)
