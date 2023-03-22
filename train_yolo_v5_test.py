@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 def test(t, data_dict):
     logger.info("===== Test::train yolo v5 =====")
-    input_dataset = t.getInput(0)
+    input_dataset = t.get_input(0)
     params = task.get_parameters(t)
     dataset_folder = os.path.join(os.path.dirname(os.path.abspath(__file__)), "images")
     os.makedirs(dataset_folder, exist_ok=True)

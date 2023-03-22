@@ -90,7 +90,7 @@ class TrainYoloV5Param(TaskParam):
         self.cfg["custom_hyp_file"] = ""
         self.cfg["output_folder"] = os.path.dirname(os.path.realpath(__file__)) + "/runs/"
 
-    def setParamMap(self, param_map):
+    def set_values(self, param_map):
         self.cfg["dataset_folder"] = param_map["dataset_folder"]
         self.cfg["model_name"] = param_map["model_name"]
         self.cfg["model_path"] = param_map["model_path"]
@@ -114,9 +114,9 @@ class TrainYoloV5(dnntrain.TrainProcess):
 
         # Create parameters class
         if param is None:
-            self.setParam(TrainYoloV5Param())
+            self.set_param_object(TrainYoloV5Param())
         else:
-            self.setParam(copy.deepcopy(param))
+            self.set_param_object(copy.deepcopy(param))
 
         self.opt = None
         self.keys = ['train/box_loss', 'train/obj_loss', 'train/cls_loss',  # train loss
@@ -124,10 +124,10 @@ class TrainYoloV5(dnntrain.TrainProcess):
                      'val/box_loss', 'val/obj_loss', 'val/cls_loss',  # val loss
                      'x/lr0', 'x/lr1', 'x/lr2']  # params
 
-    def getProgressSteps(self):
+    def get_progress_steps(self):
         # Function returning the number of progress steps for this process
         # This is handled by the main progress bar of Ikomia application
-        param = self.getParam()
+        param = self.get_param_object()
         if param is not None:
             return param.cfg["epochs"]
         else:
@@ -135,8 +135,8 @@ class TrainYoloV5(dnntrain.TrainProcess):
 
     def run(self):
         # Core function of your process
-        param = self.getParam()
-        dataset_input = self.getInput(0)
+        param = self.get_param_object()
+        dataset_input = self.get_input(0)
 
         # Conversion from Ikomia dataset to YoloV5
         print("Preparing dataset...")
@@ -146,17 +146,17 @@ class TrainYoloV5(dnntrain.TrainProcess):
         print("Collecting configuration parameters...")
         self.opt = self.load_config(dataset_yaml)
 
-        # Call beginTaskRun for initialization
-        self.beginTaskRun()
+        # Call begin_task_run for initialization
+        self.begin_task_run()
 
         print("Start training...")
         self.start_training()
 
-        # Call endTaskRun to finalize process
-        self.endTaskRun()
+        # Call end_task_run to finalize process
+        self.end_task_run()
 
     def load_config(self, dataset_yaml):
-        param = self.getParam()
+        param = self.get_param_object()
 
         if len(sys.argv) == 0:
             sys.argv = ["ikomia"]
@@ -356,7 +356,7 @@ class TrainYoloV5(dnntrain.TrainProcess):
 
     def on_epoch_end(self, vals, epoch, best_fitness, fi):
         # Step progress bar:
-        self.emitStepProgress()
+        self.emit_step_progress()
         # Log metrics
         x = {k: v for k, v in zip(self.keys, vals)}  # dict
         metrics = self.conform_metrics(x)
@@ -391,13 +391,13 @@ class TrainYoloV5Factory(dataprocess.CTaskFactory):
         dataprocess.CTaskFactory.__init__(self)
         # Set process information as string here
         self.info.name = "train_yolo_v5"
-        self.info.shortDescription = "Train Ultralytics YoloV5 object detection models."
+        self.info.short_description = "Train Ultralytics YoloV5 object detection models."
         self.info.description = "Train Ultralytics YoloV5 object detection models."
         self.info.authors = "Ultralytics"
         # relative path -> as displayed in Ikomia application process tree
         self.info.path = "Plugins/Python/Detection"
-        self.info.version = "1.0.1"
-        self.info.iconPath = "icons/icon.png"
+        self.info.version = "1.1.0"
+        self.info.icon_path = "icons/icon.png"
         self.info.year = 2020
         self.info.license = "GPLv3.0"
         # Code source repository
