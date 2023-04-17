@@ -78,7 +78,7 @@ class TrainYoloV5Param(TaskParam):
         # Create models folder
         models_folder = os.path.join(os.path.dirname(os.path.realpath(__file__)), "models")
         os.makedirs(models_folder, exist_ok=True)
-
+        self.cfg["model_name_or_path"] = ""
         self.cfg["dataset_folder"] = ""
         self.cfg["model_name"] = "yolov5s"
         self.cfg["model_path"] = models_folder + os.sep + self.cfg["model_name"] + ".pt"
@@ -87,10 +87,11 @@ class TrainYoloV5Param(TaskParam):
         self.cfg["input_width"] = 512
         self.cfg["input_height"] = 512
         self.cfg["dataset_split_ratio"] = 0.9
-        self.cfg["custom_hyp_file"] = ""
+        self.cfg["config"] = ""
         self.cfg["output_folder"] = os.path.dirname(os.path.realpath(__file__)) + "/runs/"
 
     def set_values(self, param_map):
+        self.cfg["model_name_or_path"] = param_map["model_name_or_path"]
         self.cfg["dataset_folder"] = param_map["dataset_folder"]
         self.cfg["model_name"] = param_map["model_name"]
         self.cfg["model_path"] = param_map["model_path"]
@@ -99,7 +100,7 @@ class TrainYoloV5Param(TaskParam):
         self.cfg["input_width"] = int(param_map["input_width"])
         self.cfg["input_height"] = int(param_map["input_height"])
         self.cfg["dataset_split_ratio"] = float(param_map["dataset_split_ratio"])
-        self.cfg["custom_hyp_file"] = param_map["custom_hyp_file"]
+        self.cfg["config"] = param_map["config"]
         self.cfg["output_folder"] = param_map["output_folder"]
 
 
@@ -206,12 +207,15 @@ class TrainYoloV5(dnntrain.TrainProcess):
         opt.data = dataset_yaml
 
         # Override with GUI parameters
-        if param.cfg["custom_hyp_file"]:
-            opt.hyp = param.cfg["custom_hyp_file"]
+        if param.cfg["config"]:
+            opt.hyp = param.cfg["config"]
         else:
             opt.hyp = os.path.dirname(yolov5_train.__file__) + "/" + opt.hyp
 
         opt.weights = param.cfg["model_path"]
+        if param.cfg["model_name_or_path"] != "":
+            if os.path.isfile(param.cfg["model_name_or_path"]):
+                opt.weights  = param.cfg["model_name_or_path"]
         opt.epochs = param.cfg["epochs"]
         opt.batch_size = param.cfg["batch_size"]
         opt.img_size = [param.cfg["input_width"], param.cfg["input_height"]]

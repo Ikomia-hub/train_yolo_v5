@@ -66,14 +66,14 @@ class TrainYoloV5Widget(core.CWorkflowTaskWidget):
         self.spin_input_h = pyqtutils.append_spin(self.grid_layout, "Input height", self.parameters.cfg["input_height"])
 
         # Hyper-parameters
-        custom_hyp = bool(self.parameters.cfg["custom_hyp_file"])
+        custom_hyp = bool(self.parameters.cfg["config"])
         self.check_hyp = QCheckBox("Custom hyper-parameters")
         self.check_hyp.setChecked(custom_hyp)
         self.grid_layout.addWidget(self.check_hyp, self.grid_layout.rowCount(), 0, 1, 2)
         self.check_hyp.stateChanged.connect(self.on_custom_hyp_changed)
 
         self.label_hyp = QLabel("Hyper-parameters file")
-        self.browse_hyp_file = pyqtutils.BrowseFileWidget(path=self.parameters.cfg["custom_hyp_file"],
+        self.browse_hyp_file = pyqtutils.BrowseFileWidget(path=self.parameters.cfg["config"],
                                                           tooltip="Select file",
                                                           mode=QFileDialog.ExistingFile)
 
@@ -111,7 +111,7 @@ class TrainYoloV5Widget(core.CWorkflowTaskWidget):
         self.parameters.cfg["input_height"] = self.spin_input_h.value()
 
         if self.check_hyp.isChecked():
-            self.parameters.cfg["custom_hyp_file"] = self.browse_hyp_file.path
+            self.parameters.cfg["config"] = self.browse_hyp_file.path
 
         self.parameters.cfg["output_folder"] = self.browse_out_folder.path
 
