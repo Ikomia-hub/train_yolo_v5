@@ -87,7 +87,7 @@ class TrainYoloV5Param(TaskParam):
         self.cfg["input_width"] = 512
         self.cfg["input_height"] = 512
         self.cfg["dataset_split_ratio"] = 0.9
-        self.cfg["config"] = ""
+        self.cfg["config_file"] = ""
         self.cfg["output_folder"] = os.path.dirname(os.path.realpath(__file__)) + "/runs/"
 
     def set_values(self, param_map):
@@ -100,7 +100,7 @@ class TrainYoloV5Param(TaskParam):
         self.cfg["input_width"] = int(param_map["input_width"])
         self.cfg["input_height"] = int(param_map["input_height"])
         self.cfg["dataset_split_ratio"] = float(param_map["dataset_split_ratio"])
-        self.cfg["config"] = param_map["config"]
+        self.cfg["config_file"] = param_map["config_file"]
         self.cfg["output_folder"] = param_map["output_folder"]
 
 
@@ -207,8 +207,8 @@ class TrainYoloV5(dnntrain.TrainProcess):
         opt.data = dataset_yaml
 
         # Override with GUI parameters
-        if param.cfg["config"]:
-            opt.hyp = param.cfg["config"]
+        if param.cfg["config_file"]:
+            opt.hyp = param.cfg["config_file"]
         else:
             opt.hyp = os.path.dirname(yolov5_train.__file__) + "/" + opt.hyp
 
