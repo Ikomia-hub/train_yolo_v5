@@ -78,10 +78,9 @@ class TrainYoloV5Param(TaskParam):
         # Create models folder
         models_folder = os.path.join(os.path.dirname(os.path.realpath(__file__)), "models")
         os.makedirs(models_folder, exist_ok=True)
-        self.cfg["model_name_or_path"] = ""
         self.cfg["dataset_folder"] = ""
         self.cfg["model_name"] = "yolov5s"
-        self.cfg["model_path"] = models_folder + os.sep + self.cfg["model_name"] + ".pt"
+        self.cfg["model_weight_file"] = models_folder + os.sep + self.cfg["model_name"] + ".pt"
         self.cfg["epochs"] = 10
         self.cfg["batch_size"] = 16
         self.cfg["input_width"] = 512
@@ -91,10 +90,9 @@ class TrainYoloV5Param(TaskParam):
         self.cfg["output_folder"] = os.path.dirname(os.path.realpath(__file__)) + "/runs/"
 
     def set_values(self, param_map):
-        self.cfg["model_name_or_path"] = param_map["model_name_or_path"]
         self.cfg["dataset_folder"] = param_map["dataset_folder"]
         self.cfg["model_name"] = param_map["model_name"]
-        self.cfg["model_path"] = param_map["model_path"]
+        self.cfg["model_weight_file"] = param_map["model_weight_file"]
         self.cfg["epochs"] = int(param_map["epochs"])
         self.cfg["batch_size"] = int(param_map["batch_size"])
         self.cfg["input_width"] = int(param_map["input_width"])
@@ -212,10 +210,7 @@ class TrainYoloV5(dnntrain.TrainProcess):
         else:
             opt.hyp = os.path.dirname(yolov5_train.__file__) + "/" + opt.hyp
 
-        opt.weights = param.cfg["model_path"]
-        if param.cfg["model_name_or_path"] != "":
-            if os.path.isfile(param.cfg["model_name_or_path"]):
-                opt.weights  = param.cfg["model_name_or_path"]
+        opt.weights = param.cfg["model_weight_file"]
         opt.epochs = param.cfg["epochs"]
         opt.batch_size = param.cfg["batch_size"]
         opt.img_size = [param.cfg["input_width"], param.cfg["input_height"]]
