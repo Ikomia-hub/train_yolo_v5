@@ -391,7 +391,6 @@ class TrainYoloV5Factory(dataprocess.CTaskFactory):
         # Set process information as string here
         self.info.name = "train_yolo_v5"
         self.info.short_description = "Train Ultralytics YoloV5 object detection models."
-        self.info.description = "Train Ultralytics YoloV5 object detection models."
         self.info.authors = "Ultralytics"
         # relative path -> as displayed in Ikomia application process tree
         self.info.path = "Plugins/Python/Detection"
@@ -400,7 +399,8 @@ class TrainYoloV5Factory(dataprocess.CTaskFactory):
         self.info.year = 2020
         self.info.license = "GPLv3.0"
         # Code source repository
-        self.info.repository = "https://github.com/ultralytics/yolov5"
+        self.info.repository = "https://github.com/Ikomia-hub/train_yolo_v5"
+        self.info.original_repository = "https://github.com/ultralytics/yolov5"
         # Keywords used for search
         self.info.keywords = "train,object,detection,pytorch"
 
