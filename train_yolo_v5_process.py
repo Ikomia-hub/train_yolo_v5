@@ -403,6 +403,8 @@ class TrainYoloV5Factory(dataprocess.CTaskFactory):
         self.info.original_repository = "https://github.com/ultralytics/yolov5"
         # Keywords used for search
         self.info.keywords = "train,object,detection,pytorch"
+        self.info.algo_type = core.AlgoType.TRAIN
+        self.info.algo_tasks = "OBJECT_DETECTION"
 
     def create(self, param=None):
         # Create process object
