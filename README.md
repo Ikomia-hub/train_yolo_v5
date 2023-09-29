@@ -21,7 +21,7 @@
 
 Train Ultralytics YoloV5 object detection models.
 
-![Desk object detection](https://raw.githubusercontent.com/Ikomia-hub/train_yolo_v5/feat/new_readme/icons/output.jpg)
+![Desk object detection](https://raw.githubusercontent.com/Ikomia-hub/train_yolo_v5/main/icons/output.jpg)
 
 ## :rocket: Use with Ikomia API
 
