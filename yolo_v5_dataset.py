@@ -9,10 +9,10 @@ def prepare(ikdataset, dataset_folder, split_ratio):
     if _dataset_exists(ikdataset, dataset_folder, split_ratio):
         return dataset_folder + os.sep + "dataset.yaml"
 
-    train_img_folder = dataset_folder + os.sep + "images" + os.sep + "train"
-    val_img_folder = dataset_folder + os.sep + "images" + os.sep + "val"
-    train_label_folder = dataset_folder + os.sep + "labels" + os.sep + "train"
-    val_label_folder = dataset_folder + os.sep + "labels" + os.sep + "val"
+    train_img_folder = os.path.join(dataset_folder, "images", "train")
+    val_img_folder = os.path.join(dataset_folder, "images", "val")
+    train_label_folder = os.path.join(dataset_folder, "labels", "train")
+    val_label_folder = os.path.join(dataset_folder, "labels", "val")
     os.makedirs(train_img_folder, exist_ok=True)
     os.makedirs(val_img_folder, exist_ok=True)
     os.makedirs(train_label_folder, exist_ok=True)

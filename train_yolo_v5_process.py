@@ -78,7 +78,7 @@ class TrainYoloV5Param(TaskParam):
         # Create models folder
         models_folder = os.path.join(os.path.dirname(os.path.realpath(__file__)), "models")
         os.makedirs(models_folder, exist_ok=True)
-        self.cfg["dataset_folder"] = ""
+        self.cfg["dataset_folder"] = os.path.join(os.path.dirname(os.path.realpath(__file__)), "datasets")
         self.cfg["model_name"] = "yolov5s"
         self.cfg["model_weight_file"] = models_folder + os.sep + self.cfg["model_name"] + ".pt"
         self.cfg["epochs"] = 10
@@ -394,7 +394,8 @@ class TrainYoloV5Factory(dataprocess.CTaskFactory):
         self.info.authors = "Ultralytics"
         # relative path -> as displayed in Ikomia application process tree
         self.info.path = "Plugins/Python/Detection"
-        self.info.version = "1.1.0"
+        self.info.version = "1.1.1"
+        self.info.max_python_version = "3.10.0"
         self.info.icon_path = "icons/icon.png"
         self.info.year = 2020
         self.info.license = "GPLv3.0"
